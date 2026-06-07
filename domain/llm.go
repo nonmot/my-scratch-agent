@@ -2,7 +2,6 @@ package domain
 
 import (
 	"context"
-	"github.com/anthropics/anthropic-sdk-go"
 )
 
 type StopReason string
@@ -20,10 +19,9 @@ type LLMRequest struct {
 
 type LLMResponse struct {
 	StopReason StopReason
-	Blocks []ContentBlock
+	Blocks []Block
 }
 
 type LLMClient interface {
-	// Complete(ctx context.Context, req LLMRequest) (*LLMResponse, error)
-	Complete(ctx context.Context, params anthropic.MessageNewParams) (*anthropic.Message, error)
+	Complete(ctx context.Context, req LLMRequest) (*LLMResponse, error)
 }

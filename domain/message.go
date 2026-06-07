@@ -1,27 +1,23 @@
 package domain
 
-import (
-	"encoding/json"
+type Role string
+
+const (
+	RoleUser Role = "user"
+	RoleAssistant Role = "assistant"
 )
 
 type Message struct {
-	Role string
-	Content []ContentBlock
+	Role Role
+	Blocks []Block
 }
 
-type ContentBlock struct {
-	Type string // "text" / "tool_use" / "tool_result"
+type Block interface {
+	isBlock()
+}
 
-	// Type == "text"
+type TextBlock struct {
 	Text string
-
-	// Type == "tool_use"
-	ID string
-	Name string
-	Input json.RawMessage
-
-	// Type == "tool_result"
-	ToolUseID string
-	Content string
-	IsError bool
 }
+func (TextBlock) isBlock() {}
+

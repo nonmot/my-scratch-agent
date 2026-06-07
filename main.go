@@ -17,7 +17,7 @@ func main() {
 		os.Getenv("ANTHROPIC_API_KEY"),
 		anthropic.ModelClaudeSonnet4_5,
 	)
-	agent := NewAgent(llm, "claude-opus-4-6", 10)
+	agent := NewAgent(llm, 10)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
