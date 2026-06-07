@@ -8,13 +8,21 @@ type StopReason string
 
 const (
 	StopReasonEndTurn StopReason = "end_turn"
+	StopReasonToolUse StopReason = "tool_use"
 	StopReasonMaxTokens StopReason = "max_tokens"
 )
+
+type ToolDefinition struct {
+	Name string
+	Description string
+	InputSchema map[string]any
+}
 
 type LLMRequest struct {
 	System string
 	Messages []Message
 	MaxTokens int
+	Tools []ToolDefinition
 }
 
 type LLMResponse struct {

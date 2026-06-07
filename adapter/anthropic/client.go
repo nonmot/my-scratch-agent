@@ -2,6 +2,7 @@ package anthropicadapter
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/anthropics/anthropic-sdk-go"
@@ -38,12 +39,32 @@ func (c *Client) Complete(
 // domain → SDK
 
 func toSDKParams(model anthropic.Model, req domain.LLMRequest) anthropic.MessageNewParams {
-	return anthropic.MessageNewParams{
+	params := anthropic.MessageNewParams{
 		Model: model,
 		MaxTokens: int64(req.MaxTokens),
 		System: []anthropic.TextBlockParam{{Text: req.System}},
 		Messages: toSDKMessages(req.Messages),
 	}
+	if len(req.Tools) > 0 {
+		params.Tools = toSDKTools(req.Tools)
+	}
+	return params
+}
+
+func toSDKTools(tools []domain.ToolDefinition) []anthropic.ToolUnionParam {
+	out := make([]anthropic.ToolUnionParam, len(tools))
+	for i, t := range tools {
+		out[i] = anthropic.ToolUnionParam{
+			OfTool: &anthropic.ToolParam{
+				Name: t.Name,
+				Description: anthropic.String(t.Description),
+				InputSchema: anthropic.ToolInputSchemaParam{
+					Properties: t.InputSchema["properties"],
+				},
+			},
+		}
+	}
+	return out
 }
 
 func toSDKMessages(msgs []domain.Message) []anthropic.MessageParam {
@@ -72,6 +93,23 @@ func toSDKBlocks(blocks []domain.Block) []anthropic.ContentBlockParamUnion {
 				out = append(out, anthropic.ContentBlockParamUnion{
 					OfText: &anthropic.TextBlockParam{Text: v.Text},
 			})
+			case domain.ToolResultBlock:
+				out = append(out, anthropic.ContentBlockParamUnion{
+					OfToolResult: &anthropic.ToolResultBlockParam{
+					ToolUseID: v.ToolUseID,
+					Content: []anthropic.ToolResultBlockParamContentUnion{
+						{OfText: &anthropic.TextBlockParam{Text: v.Content}},
+					},
+				},
+			})
+			case domain.ToolUseBlock:
+				out = append(out, anthropic.ContentBlockParamUnion{
+				OfToolUse: &anthropic.ToolUseBlockParam{
+					ID: v.ID,
+					Name: v.Name,
+					Input: v.Input,
+				},
+			})
 			default:
 				panic(fmt.Sprintf("unknown block type: %T", v))
 		}
@@ -93,6 +131,8 @@ func fromSDKStopReason(r anthropic.StopReason) domain.StopReason {
 	switch r {
 		case anthropic.StopReasonMaxTokens:
 			return domain.StopReasonMaxTokens
+		case anthropic.StopReasonToolUse:
+			return domain.StopReasonToolUse
 		default:
 			return domain.StopReasonEndTurn
 	}
@@ -104,6 +144,14 @@ func fromSDKBlocks(blocks []anthropic.ContentBlockUnion) []domain.Block {
 		switch v := b.AsAny().(type) {
 			case anthropic.TextBlock:
 				out = append(out, domain.TextBlock{Text: v.Text})
+			case anthropic.ToolUseBlock:
+				var input map[string]any
+				_ = json.Unmarshal([]byte(v.Input), &input)
+				out = append(out, domain.ToolUseBlock{
+					ID: v.ID,
+					Name: v.Name,
+					Input: input,
+				})
 		}
 	}
 	return out
