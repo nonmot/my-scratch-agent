@@ -12,10 +12,11 @@ import (
 type Agent struct {
 	client   domain.LLMClient
 	tools map[string]tools.Tool
+	memory domain.Memory
 	maxSteps int
 }
 
-func NewAgent(client domain.LLMClient, maxSteps int, ts ...tools.Tool) *Agent {
+func NewAgent(client domain.LLMClient, mem domain.Memory, maxSteps int, ts ...tools.Tool) *Agent {
 	toolMap := make(map[string]tools.Tool, len(ts))
 	for _, t := range ts {
 		toolMap[t.Name()] = t
@@ -23,6 +24,7 @@ func NewAgent(client domain.LLMClient, maxSteps int, ts ...tools.Tool) *Agent {
 	a := &Agent{
 		client: client,
 		tools: toolMap,
+		memory: mem,
 		maxSteps: maxSteps,
 	}
 	return a
@@ -30,11 +32,10 @@ func NewAgent(client domain.LLMClient, maxSteps int, ts ...tools.Tool) *Agent {
 
 func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 
-	messages := []domain.Message {
-		{Role: domain.RoleUser, Blocks: []domain.Block{
-			domain.TextBlock{Text: userInput},
-		}},
-	}
+	a.memory.Add(domain.Message{
+		Role: domain.RoleUser,
+		Blocks: []domain.Block{domain.TextBlock{Text: userInput}},
+	})
 
 	toolDefs := make([]domain.ToolDefinition, 0, len(a.tools))
 	for _, t := range a.tools {
@@ -46,7 +47,7 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 
 		resp, err := a.client.Complete(ctx, domain.LLMRequest {
 			System: "あなたはエージェントです。ユーザーの質問に答えてください。",
-			Messages: messages,
+			Messages: a.memory.GetHistory(),
 			MaxTokens: 1024,
 			Tools: toolDefs,
 		})
@@ -65,10 +66,7 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 			}
 		}
 
-		messages = append(messages, domain.Message{
-			Role: domain.RoleAssistant,
-			Blocks: resp.Blocks,
-		})
+		a.memory.Add(domain.Message{Role: domain.RoleAssistant, Blocks: resp.Blocks})
 
 		if resp.StopReason == domain.StopReasonToolUse {
 			var resultBlocks []domain.Block
@@ -96,10 +94,7 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 				})
 			}
 
-			messages = append(messages, domain.Message{
-				Role: domain.RoleUser,
-				Blocks: resultBlocks,
-			})
+			a.memory.Add(domain.Message{Role: domain.RoleUser, Blocks: resultBlocks})
 			continue
 		}
 
