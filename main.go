@@ -22,7 +22,7 @@ func main() {
 		anthropic.ModelClaudeSonnet4_5,
 	)
 	mem := memory.NewInMemory()
-	agent := NewAgent(llm, mem, 10, &tools.ReadFileTool{})
+	agent := NewAgent(llm, mem, 10, &tools.ReadFileTool{}, &tools.BashTool{})
 
 	scanner := bufio.NewScanner(os.Stdin)
 

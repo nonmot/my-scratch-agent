@@ -44,6 +44,7 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 	}
 
 	for step := 1; step <= a.maxSteps; step++ {
+		fmt.Printf("--- Step %d ---\n", step)
 		resp, err := a.client.Complete(ctx, domain.LLMRequest {
 			System: a.systemPrompt,
 			Messages: a.memory.GetHistory(),
