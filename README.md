@@ -2,6 +2,8 @@
 
 Go で実装した学習用の AI エージェント。Claude API を使い、ReAct パターンでツールを自律的に呼び出しながらタスクを実行する。
 
+![デモ](docs/demo-my-scratch-agent.gif)
+
 ## 動作概要
 
 1. ユーザーが CLI から自然言語でタスクを入力
