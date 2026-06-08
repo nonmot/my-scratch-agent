@@ -95,6 +95,9 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 			}
 			return textOut, nil
 		}
+		if resp.StopReason == domain.StopReasonMaxTokens {
+			return "", fmt.Errorf("max tokens reached at step %d", step)
+		}
 	}
 
 	return "", fmt.Errorf("max steps (%d) reached without end_turn", a.maxSteps)
