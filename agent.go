@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 
 	"github.com/my-scratch-agent/domain"
 	"github.com/my-scratch-agent/tools"
@@ -13,6 +12,7 @@ type Agent struct {
 	client   domain.LLMClient
 	tools map[string]tools.Tool
 	memory domain.Memory
+	systemPrompt string
 	maxSteps int
 }
 
@@ -25,6 +25,7 @@ func NewAgent(client domain.LLMClient, mem domain.Memory, maxSteps int, ts ...to
 		client: client,
 		tools: toolMap,
 		memory: mem,
+		systemPrompt: "あなたはエージェントです。ユーザーの質問に答えてください。",
 		maxSteps: maxSteps,
 	}
 	return a
@@ -43,10 +44,8 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 	}
 
 	for step := 1; step <= a.maxSteps; step++ {
-		log.Printf("--- Step %d ---", step)
-
 		resp, err := a.client.Complete(ctx, domain.LLMRequest {
-			System: "あなたはエージェントです。ユーザーの質問に答えてください。",
+			System: a.systemPrompt,
 			Messages: a.memory.GetHistory(),
 			MaxTokens: 1024,
 			Tools: toolDefs,
@@ -54,16 +53,6 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 
 		if err != nil {
 			return "", fmt.Errorf("llm at step %d: %w", step, err)
-		}
-
-		// Debug
-		for _, b := range resp.Blocks {
-			switch v := b.(type) {
-				case domain.TextBlock:
-					log.Printf("[LLM] %s", v.Text)
-				case domain.ToolUseBlock:
-					log.Printf("[ToolUse] %s %v", v.Name, v.Input)
-			}
 		}
 
 		a.memory.Add(domain.Message{Role: domain.RoleAssistant, Blocks: resp.Blocks})
@@ -87,7 +76,6 @@ func (a *Agent) Run(ctx context.Context, userInput string) (string, error) {
 				if err != nil {
 					result = fmt.Sprintf("error: %v", err)
 				}
-				log.Printf("[ToolResult] %s", result)
 				resultBlocks = append(resultBlocks, domain.ToolResultBlock{
 					ToolUseID: tu.ID,
 					Content: result,

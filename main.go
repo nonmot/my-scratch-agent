@@ -1,17 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
 	"os"
-	"time"
+	"strings"
 
 	"github.com/anthropics/anthropic-sdk-go"
 	anthropicadapter "github.com/my-scratch-agent/adapter/anthropic"
 
-	"github.com/my-scratch-agent/tools"
 	"github.com/my-scratch-agent/memory"
+	"github.com/my-scratch-agent/tools"
 )
 
 func main() {
@@ -23,14 +24,35 @@ func main() {
 	mem := memory.NewInMemory()
 	agent := NewAgent(llm, mem, 10, &tools.ReadFileTool{})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
+	scanner := bufio.NewScanner(os.Stdin)
 
-	answer, err := agent.Run(ctx, "./docs/epics.md の中身を要約してください")
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			// Ctrl + D で終了
+			fmt.Println("\nBye!")
+			break
+		}
 
-	if err != nil {
+		input := strings.TrimSpace(scanner.Text())
+		if input == "" {
+			continue
+		}
+		if input == "exit" || input == "quit" {
+			fmt.Println("\nBye!")
+			break
+		}
+		answer, err := agent.Run(context.Background(), input)
+		if err != nil {
+			log.Printf("error: %v\n", err)
+			continue
+		}
+
+		fmt.Printf("\n%s\n\n", answer)
+	}
+
+	if err := scanner.Err(); err != nil {
 		log.Fatal(err)
 	}
 
-	fmt.Println("Answer: ", answer)
 }
